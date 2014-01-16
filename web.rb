@@ -7,6 +7,10 @@ require 'json'
 class ShoppingList < ActiveRecord::Base
 end
 
+use Rack::Auth::Basic, "Restricted Area" do |username, password|
+  username == 'admin' and password == 'admin'
+end
+
 get '/list.json' do
   content_type :json
   ShoppingList.all.to_json
