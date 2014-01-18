@@ -8,7 +8,7 @@ class ShoppingList < ActiveRecord::Base
 end
 
 use Rack::Auth::Basic, "Restricted Area" do |username, password|
-  username == 'admin' and password == 'admin'
+  username == 'admin' and password == 'tr1bbl3s'
 end
 
 get '/list.json' do
