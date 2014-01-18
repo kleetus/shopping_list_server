@@ -33,7 +33,12 @@ end
 post '/list/clear.json' do
   content_type :json
   ids = params['items'].gsub(/\[|\]/, "").split(',')
-  ids.each { |i| ShoppingList.destroy(i.to_i) } 
+  ids.each do |i| 
+    begin
+      ShoppingList.destroy(i.to_i) 
+    rescue ActiveRecord::RecordNotFound => e
+    end
+  end
   ShoppingList.all.to_json
 end
 
