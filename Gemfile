@@ -8,7 +8,8 @@ gem 'sinatra-flash'
 gem 'sinatra-redirect-with-flash'
 gem 'json'
 gem 'thin'
-
+gem 'warden'
+gem 'bcrypt-ruby'
 
 
 group :development do

@@ -18,6 +18,7 @@ GEM
       tzinfo (~> 0.3.37)
     arel (4.0.1)
     atomic (1.1.14)
+    bcrypt-ruby (3.1.2)
     bond (0.4.3)
     builder (3.1.4)
     daemons (1.1.9)
@@ -67,12 +68,15 @@ GEM
       ripl-rack (>= 0.2.0)
       sinatra (>= 1.2.1)
     tzinfo (0.3.38)
+    warden (1.2.3)
+      rack (>= 1.0)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
   activerecord
+  bcrypt-ruby
   json
   pg
   shotgun
@@ -83,3 +87,4 @@ DEPENDENCIES
   sqlite3
   thin
   tux
+  warden
