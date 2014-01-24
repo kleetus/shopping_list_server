@@ -10,27 +10,25 @@ end
 
 class User < ActiveRecord::Base
   include BCrypt
+
+  SALT_COMPLEXITY = 1000
   
   def password
     @password ||= Password.new(password_hash)
   end
  
   def password=(new_password)
-    @password = Password.create(new_password)
+    self.salt = Engine.generate_salt(Engine.calibrate(SALT_COMPLEXITY))
+    @password = Password.create(new_password+self.salt)
     self.password_hash = @password
+  end
+
+  def authenticate(submitted_password)
+    self.password == submitted_password
   end
 end
 
 class Web < Sinatra::Application
-
-  use Rack::Session::Cookie, :secret => "sjdkdjfksjlksjhlkfhdjlkghfsdjklbg,fsdmbgm, s,iorutputoperhtipwskjasfjasdljfdlksahflkeuyrejvsndjncdiso947230hcnw ey0wyrwe0"
-
-  use Warden::Manager do |manager|
-    manager.default_strategies :password
-    manager.failure_app = self
-    manager.serialize_into_session {|user| user.id}
-    manager.serialize_from_session {|id| User.find_by_id(id) } 
-  end
   
   Warden::Manager.before_failure do |env,opts|
     env['REQUEST_METHOD'] = 'POST'
@@ -43,7 +41,7 @@ class Web < Sinatra::Application
   
     def authenticate!
       user = User.find_by_user(params['email'])
-      if user && user.authenticate(params['password'])
+      if user && user.authenticate(params['password']+user.salt)
         success!(user)
       else
         fail!("Could not log in")
@@ -76,7 +74,6 @@ class Web < Sinatra::Application
   end
   
   get '/list.json' do
-    
     content_type :json
     ShoppingList.all.to_json
   end
@@ -105,6 +102,14 @@ class Web < Sinatra::Application
     end
     ShoppingList.all.to_json
   end
+
+  get '/test' do
+    check_authentication
+  end
+
+  get '/please_login' do
+    422
+  end
   
   def warden_handler
     env['warden']
@@ -115,6 +120,6 @@ class Web < Sinatra::Application
   end
   
   def check_authentication
-    return 422 unless warden_handler.authenticated?
+    redirect '/please_login' unless warden_handler.authenticated?
   end
 end
