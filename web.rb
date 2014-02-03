@@ -2,84 +2,94 @@ require 'sinatra'
 require 'sinatra/activerecord'
 require './environments'
 require 'json'
-require 'warden'
 require 'bcrypt'
+require 'sinatra/cookies'
 
 class ShoppingList < ActiveRecord::Base
+end
+
+class Session < ActiveRecord::Base
+  include BCrypt
+  SALT_COMPLEXITY = 100 #makes session and user creation faster with lower numbers
+
+  before_create :salted_session, :clean_sessions
+
+  def self.salt
+    Engine.generate_salt(Engine.calibrate(SALT_COMPLEXITY))
+  end
+
+  def salted_session
+    @session = Password.create(Time.now.to_s+Session.salt)
+    self.session = @session
+  end
+
+  def clean_sessions
+    Session.find_all_by_user_id(self.user_id).each {|s| s.destroy }
+  end
+
 end
 
 class User < ActiveRecord::Base
   include BCrypt
 
-  SALT_COMPLEXITY = 1000
-  
+  has_one :session
+
+  def to_s
+    self.user
+  end
+
   def password
     @password ||= Password.new(password_hash)
   end
  
   def password=(new_password)
-    self.salt = Engine.generate_salt(Engine.calibrate(SALT_COMPLEXITY))
-    @password = Password.create(new_password+self.salt)
+    salt = Session.salt
+    @password = Password.create(new_password+salt)
     self.password_hash = @password
+    self.salt = salt
   end
 
   def authenticate(submitted_password)
-    self.password == submitted_password
+    self.password == submitted_password+self.salt
   end
+
 end
 
 class Web < Sinatra::Application
-  
-  Warden::Manager.before_failure do |env,opts|
-    env['REQUEST_METHOD'] = 'POST'
-  end
-  
-  Warden::Strategies.add(:password) do
-    def valid?
-      params['email'] || params['password']
-    end
-  
-    def authenticate!
-      user = User.find_by_user(params['email'])
-      if user && user.authenticate(params['password']+user.salt)
-        success!(user)
-      else
-        fail!("Could not log in")
-      end
-    end
-  end 
-  
+
   post '/session' do
-    warden_handler.authenticate!  
-    if warden_handler.authenticated?
-      redirect "/list.json"
-    end
+    return 422 if not params['email'] or not params['password']
+    user = User.find_by_user(params['email'])
+    return 422 if not user or not user.authenticate(params['password'])
+    set_session(user.create_session)
   end
 
   get '/logout' do
-    warden_handler.logout
-    200    
+    check_session
+    @session.destroy
+    200
   end
 
-  post '/unauthenticated' do
-    403
+  get '/login' do
+    200
   end
 
   post '/users/new' do
     content_type :json
     return 422 if not params['email'] or not params['password']
-    @user = User.new(:user => params['email'])
-    @user.password = params[:password]
-    @user.save!
+    user = User.new(:user => params['email'])
+    user.password = params[:password]
+    user.save!
   end
   
   get '/list.json' do
+    check_session
     content_type :json
     ShoppingList.all.to_json
   end
   
-  
   post '/list/item.json' do
+    check_session
     content_type :json
     return 422 if (not params['item'] or params['item'].length < 1)
     if params['quantity'] and (params['quantity'] =~ /[^\d+]/).nil?
@@ -92,6 +102,7 @@ class Web < Sinatra::Application
   end
   
   post '/list/clear.json' do
+    check_session
     content_type :json
     ids = params['items'].gsub(/\[|\]/, "").split(',')
     ids.each do |i| 
@@ -103,23 +114,15 @@ class Web < Sinatra::Application
     ShoppingList.all.to_json
   end
 
-  get '/test' do
-    check_authentication
+  private  
+  def check_session
+    @session ||= Session.find_by_session(cookies['rack.session']) if cookies['rack.session']
+    redirect '/login' unless @session
   end
 
-  get '/please_login' do
-    422
+  def set_session(sess)
+    cookies['rack.session'] = sess.session.to_s
+    200
   end
-  
-  def warden_handler
-    env['warden']
-  end
-  
-  def current_user
-    warden_handler.user
-  end
-  
-  def check_authentication
-    redirect '/please_login' unless warden_handler.authenticated?
-  end
+
 end

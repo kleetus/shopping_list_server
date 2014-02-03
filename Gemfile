@@ -4,11 +4,9 @@ ruby '2.0.0'
 gem 'sinatra', '>= 1.2.1'
 gem 'activerecord'
 gem 'sinatra-activerecord'
-gem 'sinatra-flash'
-gem 'sinatra-redirect-with-flash'
+gem 'sinatra-contrib'
 gem 'json'
 gem 'thin'
-gem 'warden'
 gem 'bcrypt-ruby'
 
 
