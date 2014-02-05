@@ -71,7 +71,7 @@ class Web < Sinatra::Application
   end
 
   get '/login' do
-    200
+    405
   end
 
   post '/users/new' do
